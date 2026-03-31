@@ -9,12 +9,27 @@ app.use(express.json());
 // in-memory data store
 let posts = [];
 
-app.post('/posts', authenticateToken, (req, res) => {
+//image upload
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+
+const upload = multer({ storage });
+
+app.post('/posts', authenticateToken, upload.single('image'),(req, res) => {
     const { content } = req.body;
 
     const newPost = {
         id: posts.length + 1,
-        content: content
+        content: content,
+        image: req.file ? req.file.path : null
     };
 
     posts.push(newPost);
@@ -23,8 +38,20 @@ app.post('/posts', authenticateToken, (req, res) => {
 });
 
 //get all posts
-app.get('/posts', (req, res) => {
-    res.json(posts);
+app.get('/view-posts', (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 2;
+
+    const start = (page - 1) * limit;
+    const end = start * limit;
+
+    const paginatedPosts = posts.slice(start, end);
+
+    res.json({
+        page,
+        total: posts.length,
+        data: paginatedPosts
+    })
 });
 
 // update a post
@@ -101,3 +128,6 @@ function authenticateToken(req, res, next) {
         next();
     });
 }
+
+app.set('view engine', 'ejs');
+
